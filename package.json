@@ -1,0 +1,22 @@
+{
+  "name": "proxy-kutti",
+  "version": "1.0.0",
+  "description": "A Simple and transparent caching forward proxy with minimal dependencies. Cached files are stored in filesystem by preserving the structure. Cache never expires. Useful for caching various package manager files like rpm, deb etc with in local network, especially while building containers",
+  "main": "proxy.js",
+  "repository": "https://github.com/harish2704/node-proxy-kutti",
+  "author": "Harish Karumuthil <harish2704@gmail.com>",
+  "license": "MIT",
+  "bin": {
+    "proxy-kutti": "./proxy.js"
+  },
+  "dependencies": {
+    "node-forge": "^0.9.1"
+  },
+  "keywords": [
+    "proxy",
+    "caching-proxy",
+    "http-proxy",
+    "https-proxy",
+    "mitm"
+  ]
+}

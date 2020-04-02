@@ -19,7 +19,10 @@ const tls = require('tls');
 const generateKeyPair = util.promisify(require('crypto').generateKeyPair);
 const net = require('net');
 const os = require('os');
+const { Readable } = require('stream')
 
+
+const log = console.log.bind(console);
 const httpsPort = os.tmpdir() + `/proxy-kutti-${Date.now()}.sock`
 const configHome = os.homedir() + '/.config/proxy-kutti';
 const configFile = process.env.PROXY_KUTTI_CONFIG || configHome + '/config';
@@ -29,7 +32,7 @@ const config = {
   cache_dir: os.homedir() + '/.cache/proxy-kutti',
   root_ca_key: configHome + '/rootCA.key',
   root_ca_cert: configHome + '/rootCA.pem',
-  url_rewrites: '#http[s]://(.*)/7.7.1908/#http://mirrors.centos/7.7.1908/# #http[s]://(.*)epel/7/x86_64/#http://mirror.epel/7/x86_64/#',
+  url_rewrites: '#https?://(.*)/7.7.1908/#http://mirrors.centos/7.7.1908/# #https?://(.*)epel/7/x86_64/#http://mirror.epel/7/x86_64/#',
 };
 
 try {
@@ -96,7 +99,7 @@ async function getContent(httpModule, origReq, origRes) {
     await untillRequestFinished( cachedFile );
   }
   if (false !== (await fsPromise.access(cachedFileMeta).catch(() => false))) {
-    proxyRes = fs.createReadStream(cachedFile);
+    proxyRes = method === 'HEAD' ? Readable.from('') : fs.createReadStream(cachedFile);
     Object.assign( proxyRes, JSON.parse(await fsPromise.readFile(cachedFileMeta)) );
     isHit = true;
   } else {
@@ -115,7 +118,7 @@ async function getContent(httpModule, origReq, origRes) {
     });
     await fsPromise.mkdir(dirname(cachedFile), { recursive: true });
     /**
-     *  write metda data only if the request completed successfully
+     *  write metadata only if the request completed successfully
      *  Otherwise, partial & invalid cached content will be served next time
      */
     origRes.on('finish', () =>  fsPromise.writeFile(cachedFileMeta, JSON.stringify({ headers: proxyRes.headers, statusCode: proxyRes.statusCode } )) )
@@ -246,13 +249,14 @@ function main() {
       ? ['127.0.0.1',  httpsPort]
       : req.url.split(':');
     var httpsProxyConnection = net.createConnection(port, host);
-    res.on('close', () => httpsProxyConnection.destroy());
+    res.on('close', () => res.unpipe( httpsProxyConnection ));
+    res.on('error', () => res.unpipe( httpsProxyConnection ));
     res.pipe(httpsProxyConnection);
     httpsProxyConnection.pipe(res);
   });
 
   httpProxy.listen(config.port, config.host, function() {
-    console.log(`Proxy-kutti is running...
+    log(`Proxy-kutti is running...
 
 Using env variables
   PROXY_KUTTI_CONFIG=${configFile}
@@ -272,6 +276,6 @@ Run the following command shell to start using this proxy
 if (require.main === module) {
   main();
   process.on('uncaughtException', function (err) {
-    console.log(err);
+    log(err);
   })
 }
